@@ -1,11 +1,15 @@
 #include "SoftwareSerial.h"
 #include "DFRobotDFPlayerMini.h"
 #include "FastLED.h"
+#include <avr/sleep.h>
 
+#define wakeUpPin 2 // pin used to wake Arduino from sleep
 #define volumePotPin A0 // analog pin used for potentiometer to adjust volume
 #define buttonPin 3
 #define LED_PIN 13
 #define NUM_LEDS 10
+
+long timeToSleep = 14400000; // (4 hours in ms)
 
 long counter = 0;
 bool down = false;
@@ -54,6 +58,17 @@ void setup() {
   
   myPlayer.enableLoopAll();
   myPlayer.loop(buttonPushCounter);  //Play the first mp3
+}
+
+void goToSleep(){
+  
+  Serial.println("Getting ready to go to sleep now boss");
+  sleep_enable(); // enable sleep mode
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
+  FastLED.clear(true);
+  myPlayer.pause();
+  delay(1000); // wait a second to allow leds to clear and mp3 to pause
+  sleep_cpu(); // activate sleep mode
 }
 
 void pin_ISR() {
@@ -191,6 +206,9 @@ void printDetail(uint8_t type, int value){
 
 void loop() {
   // put your main code here, to run repeatedly:
+  if (millis() >= timeToSleep){
+    goToSleep();
+  }
   if (myPlayer.available()) {
     printDetail(myPlayer.readType(), myPlayer.read()); //Print the detail message from DFPlayer to handle different errors and states.
   }
