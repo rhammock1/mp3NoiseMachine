@@ -1,13 +1,21 @@
 #include "SoftwareSerial.h"
 #include "DFRobotDFPlayerMini.h"
+#include "FastLED.h"
 
 #define volumePotPin A0 // analog pin used for potentiometer to adjust volume
 #define buttonPin 3
+#define LED_PIN 13
+#define NUM_LEDS 10
+
+long counter = 0;
+bool down = false;
+int brightness = 0;
 
 byte buttonPushCounter = 1;
 long lastDebounceTime = 0;
 int debounceDelay = 150;
 volatile int buttonState = 0;
+
 byte lastTrack = 1;
 byte volume = 0;
 byte lastVolume = 0;
@@ -17,6 +25,7 @@ int lastAnalogVolumeValue = -1;
 
 SoftwareSerial mySerial(10, 11); // pins used for RX, TX
 DFRobotDFPlayerMini myPlayer;
+CRGB leds[NUM_LEDS];
 
 void setup() {
   // put your setup code here, to run once:
@@ -39,7 +48,10 @@ void setup() {
 
   pinMode(buttonPin, INPUT);
   attachInterrupt(digitalPinToInterrupt(buttonPin), pin_ISR, CHANGE);
-
+  
+  FastLED.addLeds<WS2812B, LED_PIN>(leds, NUM_LEDS).setCorrection(TypicalSMD5050);
+  FastLED.clear();
+  
   myPlayer.enableLoopAll();
   myPlayer.loop(buttonPushCounter);  //Play the first mp3
 }
@@ -65,15 +77,42 @@ void pin_ISR() {
 
 }
 
+int handleBrightness() {
+// responsible for the "breathing" effect
+
+  brightness = sin(counter / 600.0 * PI) * 1000.0; // calculates sin wave 
+  brightness = map(brightness, -1000, 1000, 0, 75); // maps that value to be between 0 and 100
+
+  if (!down) {
+    counter = counter + 5; // determines amplitude of the wave
+  } else {
+    counter = counter - 5;
+  }
+  if (brightness >= 75) {
+    down = true;
+    brightness = 75;
+  } else if (brightness <= 0) {
+    down = false;
+    brightness = 0;
+  }
+  
+  return brightness;
+}
+
+void handleLED(){
+  
+  fill_solid(leds, NUM_LEDS, CRGB(0, 255, 0));
+  FastLED.setBrightness(handleBrightness());
+  FastLED.show();
+  
+  delay(25);
+}
+
 void adjustVolume(){
-//  int analogAvg = 0;
-//  for(int i = 0; i <= 10; i++){
-//    analogAvg = analogAvg + analogRead(volumePotPin);
-//  }
-//  analogVolumeValue = analogAvg / 10;
+
   analogVolumeValue = analogRead(volumePotPin);
 
-  volume = map(analogVolumeValue, 0, 3968, 0, 30);
+  volume = map(analogVolumeValue, 0, 3968, 0, 25);
   if (volume == volumeBeforeLast){
     return;
   }else if (volume != lastVolume){
@@ -161,6 +200,6 @@ void loop() {
     setTrack();
   }
   adjustVolume();
-  
+  handleLED();
   
 }
