@@ -15,12 +15,12 @@ long counter = 0;
 bool down = false;
 int brightness = 0;
 
-byte buttonPushCounter = 1;
+byte buttonPushCounter = 6;
 long lastDebounceTime = 0;
 int debounceDelay = 150;
 volatile int buttonState = 0;
 
-byte lastTrack = 1;
+byte lastTrack = 6;
 byte volume = 0;
 byte lastVolume = 0;
 byte volumeBeforeLast = 0;
@@ -34,7 +34,7 @@ CRGB leds[NUM_LEDS];
 void setup() {
   // put your setup code here, to run once:
   mySerial.begin(9600);
-  Serial.begin(9600);
+  Serial.begin(115200);
   
   Serial.println();
   Serial.println(F("DFRobot DFPlayer Mini Demo"));
@@ -57,7 +57,7 @@ void setup() {
   FastLED.clear();
   
   myPlayer.enableLoopAll();
-  myPlayer.loop(buttonPushCounter);  //Play the first mp3
+  myPlayer.play(buttonPushCounter);  //Play the last mp3 - guided sleep meditation on my SD card
 }
 
 void goToSleep(){
@@ -95,7 +95,7 @@ void pin_ISR() {
 int handleBrightness() {
 // responsible for the "breathing" effect
 
-  brightness = sin(counter / 600.0 * PI) * 1000.0; // calculates sin wave 
+  brightness = sin(counter / 800.0 * PI) * 1000.0; // calculates sin wave 
   brightness = map(brightness, -1000, 1000, 0, 75); // maps that value to be between 0 and 100
 
   if (!down) {
@@ -170,6 +170,11 @@ void printDetail(uint8_t type, int value){
       Serial.print(F("Number:"));
       Serial.print(value);
       Serial.println(F(" Play Finished!"));
+      if (buttonPushCounter == 6) {
+        Serial.println("Last file finished, resetting buttonPushCounter to 2"); // currently file 2 is preferred over others
+        buttonPushCounter = 2;
+        setTrack();
+      }
       break;
     case DFPlayerError:
       Serial.print(F("DFPlayerError:"));
@@ -212,11 +217,12 @@ void loop() {
   if (myPlayer.available()) {
     printDetail(myPlayer.readType(), myPlayer.read()); //Print the detail message from DFPlayer to handle different errors and states.
   }
-
+  
   if (buttonPushCounter != lastTrack){
     Serial.println("Trying to change track");
     setTrack();
   }
+
   adjustVolume();
   handleLED();
   
